@@ -1,0 +1,21 @@
+[package]
+name = "esv-core"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lib]
+doctest = false
+name = "esv_core"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[features]
+deterministic_process_ids = []
+test-support = []
+
+[dev-dependencies]
