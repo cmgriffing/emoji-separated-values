@@ -1,0 +1,145 @@
+# GoReleaser configuration for ESV CLI
+# Note: This is a Rust project. GoReleaser doesn't natively support Rust,
+# so we use custom build hooks. For most use cases, the GitHub Actions
+# workflow in .github/workflows/release.yml is recommended instead.
+#
+# To use this config, you need GoReleaser Pro or to run the builds manually.
+
+version: 2
+
+project_name: esv
+
+before:
+  hooks:
+    - cargo fetch
+
+builds:
+  - id: esv-linux-amd64
+    builder: prebuilt
+    goos:
+      - linux
+    goarch:
+      - amd64
+    prebuilt:
+      path: target/x86_64-unknown-linux-gnu/release/esv
+    hooks:
+      pre:
+        - cargo build --release --package esv-cli --target x86_64-unknown-linux-gnu
+
+  - id: esv-linux-arm64
+    builder: prebuilt
+    goos:
+      - linux
+    goarch:
+      - arm64
+    prebuilt:
+      path: target/aarch64-unknown-linux-gnu/release/esv
+    hooks:
+      pre:
+        - cargo build --release --package esv-cli --target aarch64-unknown-linux-gnu
+
+  - id: esv-darwin-amd64
+    builder: prebuilt
+    goos:
+      - darwin
+    goarch:
+      - amd64
+    prebuilt:
+      path: target/x86_64-apple-darwin/release/esv
+    hooks:
+      pre:
+        - cargo build --release --package esv-cli --target x86_64-apple-darwin
+
+  - id: esv-darwin-arm64
+    builder: prebuilt
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    prebuilt:
+      path: target/aarch64-apple-darwin/release/esv
+    hooks:
+      pre:
+        - cargo build --release --package esv-cli --target aarch64-apple-darwin
+
+  - id: esv-windows-amd64
+    builder: prebuilt
+    goos:
+      - windows
+    goarch:
+      - amd64
+    prebuilt:
+      path: target/x86_64-pc-windows-msvc/release/esv.exe
+    hooks:
+      pre:
+        - cargo build --release --package esv-cli --target x86_64-pc-windows-msvc
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: cmgriffing
+    name: emoji-separated-values
+  draft: true
+  prerelease: auto
+  name_template: "Release {{ .Tag }}"
+  header: |
+    ## ESV (Emoji Separated Values) {{ .Tag }}
+
+    ### Installation
+
+    #### Download Binary
+    Download the appropriate binary for your platform from the assets below.
+
+    #### From Source
+    ```bash
+    cargo install --git https://github.com/cmgriffing/emoji-separated-values --tag {{ .Tag }}
+    ```
+
+    ### Checksums
+    See `checksums.txt` for SHA256 checksums of all binaries.
+
+# Homebrew tap (optional - requires separate tap repository)
+# brews:
+#   - name: esv
+#     repository:
+#       owner: cmgriffing
+#       name: homebrew-tap
+#     homepage: https://github.com/cmgriffing/emoji-separated-values
+#     description: CLI tool for working with Emoji Separated Values (ESV)
+#     license: MIT
+#     install: |
+#       bin.install "esv"
+
+# Scoop bucket (optional - requires separate bucket repository)
+# scoops:
+#   - repository:
+#       owner: cmgriffing
+#       name: scoop-bucket
+#     homepage: https://github.com/cmgriffing/emoji-separated-values
+#     description: CLI tool for working with Emoji Separated Values (ESV)
+#     license: MIT
