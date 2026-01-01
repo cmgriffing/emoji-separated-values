@@ -73,8 +73,7 @@ impl EsvSerializer {
     /// Panics if the separator is not an emoji. Use `try_serialize()` for a non-panicking version.
     #[must_use]
     pub fn serialize(&self, doc: &EsvDocument) -> String {
-        self.try_serialize(doc)
-            .expect("separator must be an emoji")
+        self.try_serialize(doc).expect("separator must be an emoji")
     }
 
     /// Try to serialize an ESV document to a string

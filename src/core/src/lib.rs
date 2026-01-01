@@ -324,20 +324,32 @@ mod tests {
     #[test]
     fn test_validate_separator_invalid() {
         let result = validate_separator(',');
-        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: ',' })));
+        assert!(matches!(
+            result,
+            Err(EsvError::InvalidSeparator { separator: ',' })
+        ));
 
         let result = validate_separator('\t');
-        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: '\t' })));
+        assert!(matches!(
+            result,
+            Err(EsvError::InvalidSeparator { separator: '\t' })
+        ));
 
         let result = validate_separator('|');
-        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: '|' })));
+        assert!(matches!(
+            result,
+            Err(EsvError::InvalidSeparator { separator: '|' })
+        ));
     }
 
     #[test]
     fn test_parser_rejects_ascii_separator() {
         let parser = EsvParser::new().with_separator(',');
         let result = parser.parse("a,b,c");
-        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: ',' })));
+        assert!(matches!(
+            result,
+            Err(EsvError::InvalidSeparator { separator: ',' })
+        ));
     }
 
     #[test]
@@ -354,7 +366,10 @@ mod tests {
         let serializer = EsvSerializer::new().with_separator(',');
         let doc = EsvDocument::new(vec![vec!["a".to_string(), "b".to_string()]]);
         let result = serializer.try_serialize(&doc);
-        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: ',' })));
+        assert!(matches!(
+            result,
+            Err(EsvError::InvalidSeparator { separator: ',' })
+        ));
     }
 
     #[test]
