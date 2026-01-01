@@ -110,6 +110,8 @@ jobs:
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -131,22 +133,35 @@ jobs:
       - name: Run benchmarks on PR branch
         run: |
           cargo bench --package esv-core --bench esv_benchmarks -- --noplot --save-baseline pr
-          
-      - name: Checkout base branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.base_ref }}
-          clean: false
+
+      - name: Check if base branch has benchmarks
+        id: check-base-benchmarks
+        run: |
+          git checkout ${{ github.base_ref }} -- src/core/benches/esv_benchmarks.rs src/core/Cargo.toml 2>/dev/null && echo "has_benchmarks=true" >> $GITHUB_OUTPUT || echo "has_benchmarks=false" >> $GITHUB_OUTPUT
+          git checkout ${{ github.sha }} -- src/core/benches/esv_benchmarks.rs src/core/Cargo.toml 2>/dev/null || true
 
       - name: Run benchmarks on base branch
+        if: steps.check-base-benchmarks.outputs.has_benchmarks == 'true'
         run: |
+          git stash
+          git checkout ${{ github.base_ref }}
           cargo bench --package esv-core --bench esv_benchmarks -- --noplot --save-baseline base
+          git checkout ${{ github.sha }}
+          git stash pop || true
 
       - name: Compare benchmarks
         id: bench-compare
         run: |
           echo "## Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check-base-benchmarks.outputs.has_benchmarks }}" != "true" ]; then
+            echo "ℹ️ Base branch does not have benchmarks yet. Skipping comparison." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "PR branch benchmark results are available in the artifacts." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
           echo "Comparing PR branch against \`${{ github.base_ref }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
