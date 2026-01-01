@@ -170,9 +170,7 @@ fn run_parse(args: &ParseArgs) -> Result<()> {
         parser = parser.with_strict_field_count(true);
     }
 
-    let doc = parser
-        .parse(&input)
-        .context("Failed to parse ESV input")?;
+    let doc = parser.parse(&input).context("Failed to parse ESV input")?;
 
     let output = match args.format {
         OutputFormat::Json => format_as_json(&doc, false)?,
