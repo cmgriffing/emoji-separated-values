@@ -23,6 +23,8 @@ pub enum EsvError {
     EmptyInput,
     /// Invalid UTF-8 in input
     InvalidUtf8,
+    /// Invalid separator - must be an emoji
+    InvalidSeparator { separator: char },
 }
 
 impl fmt::Display for EsvError {
@@ -53,6 +55,13 @@ impl fmt::Display for EsvError {
             }
             EsvError::EmptyInput => write!(f, "empty input"),
             EsvError::InvalidUtf8 => write!(f, "invalid UTF-8 in input"),
+            EsvError::InvalidSeparator { separator } => {
+                write!(
+                    f,
+                    "invalid separator '{}' (U+{:04X}): separator must be an emoji",
+                    separator, *separator as u32
+                )
+            }
         }
     }
 }
@@ -93,5 +102,11 @@ mod tests {
 
         let err = EsvError::InvalidUtf8;
         assert_eq!(err.to_string(), "invalid UTF-8 in input");
+
+        let err = EsvError::InvalidSeparator { separator: ',' };
+        assert_eq!(
+            err.to_string(),
+            "invalid separator ',' (U+002C): separator must be an emoji"
+        );
     }
 }

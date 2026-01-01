@@ -3,6 +3,8 @@
 //! Serializes data to ESV (Emoji Separated Values) format following RFC 4180 conventions
 //! adapted for emoji separators.
 
+use crate::error::EsvError;
+use crate::validate_separator;
 use crate::EsvDocument;
 use crate::DEFAULT_SEPARATOR;
 
@@ -41,6 +43,9 @@ impl EsvSerializer {
     }
 
     /// Set a custom emoji separator
+    ///
+    /// Note: The separator will be validated when `serialize()` or `try_serialize()` is called.
+    /// Only emoji characters are allowed as separators.
     #[must_use]
     pub fn with_separator(mut self, separator: char) -> Self {
         self.separator = separator;
@@ -62,8 +67,29 @@ impl EsvSerializer {
     }
 
     /// Serialize an ESV document to a string
+    ///
+    /// # Panics
+    ///
+    /// Panics if the separator is not an emoji. Use `try_serialize()` for a non-panicking version.
     #[must_use]
     pub fn serialize(&self, doc: &EsvDocument) -> String {
+        self.try_serialize(doc).expect("separator must be an emoji")
+    }
+
+    /// Try to serialize an ESV document to a string
+    ///
+    /// # Errors
+    ///
+    /// Returns `EsvError::InvalidSeparator` if the separator is not an emoji.
+    pub fn try_serialize(&self, doc: &EsvDocument) -> Result<String, EsvError> {
+        // Validate separator is an emoji
+        validate_separator(self.separator)?;
+
+        Ok(self.serialize_internal(doc))
+    }
+
+    /// Internal serialization (assumes separator is already validated)
+    fn serialize_internal(&self, doc: &EsvDocument) -> String {
         let mut output = String::new();
         let line_ending = match self.line_ending {
             LineEnding::Lf => "\n",

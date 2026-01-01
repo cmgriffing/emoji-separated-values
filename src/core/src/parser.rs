@@ -4,6 +4,7 @@
 //! adapted for emoji separators.
 
 use crate::error::EsvError;
+use crate::validate_separator;
 use crate::EsvDocument;
 use crate::DEFAULT_SEPARATOR;
 
@@ -33,6 +34,9 @@ impl EsvParser {
     }
 
     /// Set a custom emoji separator
+    ///
+    /// Note: The separator will be validated when `parse()` is called.
+    /// Only emoji characters are allowed as separators.
     #[must_use]
     pub fn with_separator(mut self, separator: char) -> Self {
         self.separator = separator;
@@ -58,10 +62,14 @@ impl EsvParser {
     /// # Errors
     ///
     /// Returns an error if:
+    /// - The separator is not an emoji character
     /// - A quoted field is not properly closed
     /// - An unexpected character appears after a closing quote
     /// - Field counts are inconsistent (when strict mode is enabled)
     pub fn parse(&self, input: &str) -> Result<EsvDocument, EsvError> {
+        // Validate separator is an emoji
+        validate_separator(self.separator)?;
+
         if input.is_empty() {
             return Ok(EsvDocument::new(vec![]));
         }
