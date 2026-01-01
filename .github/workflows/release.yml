@@ -11,20 +11,20 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: esv
 
 jobs:
-  create-release:
-    name: Create Release
+  get-version:
+    name: Get Version
     runs-on: ubuntu-latest
     outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.get_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: Get version
         id: get_version
         run: |
@@ -36,38 +36,9 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION}"
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.get_version.outputs.version }}
-          release_name: Release ${{ steps.get_version.outputs.version }}
-          draft: true
-          prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
-          body: |
-            ## ESV (Emoji Separated Values) ${{ steps.get_version.outputs.version }}
-
-            ### Installation
-
-            #### Download Binary
-            Download the appropriate binary for your platform from the assets below.
-
-            #### From Source
-            ```bash
-            cargo install --git https://github.com/${{ github.repository }} --tag ${{ steps.get_version.outputs.version }}
-            ```
-
-            ### Checksums
-            See `checksums.txt` for SHA256 checksums of all binaries.
-
-            ### Changelog
-            <!-- Add changelog here -->
-
   build:
     name: Build ${{ matrix.target }}
-    needs: create-release
+    needs: get-version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -154,7 +125,7 @@ jobs:
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} dist/
           cp README.md LICENSE dist/ 2>/dev/null || true
           cd dist
-          tar -czvf ../${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz *
+          tar -czvf ../${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.tar.gz *
 
       - name: Prepare artifacts (Windows)
         if: matrix.os == 'windows-latest'
@@ -163,80 +134,80 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist
           Copy-Item "target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}.exe" -Destination dist/
           Copy-Item README.md, LICENSE -Destination dist/ -ErrorAction SilentlyContinue
-          Compress-Archive -Path dist/* -DestinationPath "${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.zip"
+          Compress-Archive -Path dist/* -DestinationPath "${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.zip"
 
       - name: Generate checksum (Unix)
         if: matrix.os != 'windows-latest'
         run: |
-          sha256sum ${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz > ${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz.sha256
+          sha256sum ${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.tar.gz > ${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.tar.gz.sha256
 
       - name: Generate checksum (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $hash = (Get-FileHash "${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.zip" -Algorithm SHA256).Hash.ToLower()
-          "$hash  ${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.zip" | Out-File -Encoding ASCII "${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.zip.sha256"
+          $hash = (Get-FileHash "${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.zip" | Out-File -Encoding ASCII "${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.zip.sha256"
 
-      - name: Upload Release Asset (Unix)
-        if: matrix.os != 'windows-latest'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz
-          asset_name: ${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz
-          asset_content_type: application/gzip
+          name: ${{ env.BINARY_NAME }}-${{ matrix.target }}
+          path: |
+            ${{ env.BINARY_NAME }}-${{ needs.get-version.outputs.version }}-${{ matrix.target }}.*
+          retention-days: 1
 
-      - name: Upload Release Asset (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.zip
-          asset_name: ${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.zip
-          asset_content_type: application/zip
-
-      - name: Upload checksum
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}.sha256
-          asset_name: ${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.${{ matrix.archive }}.sha256
-          asset_content_type: text/plain
-
-  publish-checksums:
-    name: Publish Combined Checksums
-    needs: [create-release, build]
+  release:
+    name: Create Release
+    needs: [get-version, build]
     runs-on: ubuntu-latest
     steps:
-      - name: Download all checksum files
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: '*sha256*'
+          path: artifacts
           merge-multiple: true
-        continue-on-error: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
 
       - name: Create combined checksums file
         run: |
-          echo "# SHA256 Checksums for ESV ${{ needs.create-release.outputs.version }}" > checksums.txt
+          cd artifacts
+          echo "# SHA256 Checksums for ESV ${{ needs.get-version.outputs.version }}" > checksums.txt
           echo "" >> checksums.txt
           echo "Verify downloads with: sha256sum -c checksums.txt" >> checksums.txt
           echo "" >> checksums.txt
-          # The individual checksums are uploaded directly to the release
-          # This step is a placeholder for future enhancement
+          cat *.sha256 >> checksums.txt
 
-      - name: Upload combined checksums
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./checksums.txt
-          asset_name: checksums.txt
-          asset_content_type: text/plain
-        continue-on-error: true
+          tag_name: ${{ needs.get-version.outputs.version }}
+          name: Release ${{ needs.get-version.outputs.version }}
+          draft: true
+          prerelease: ${{ contains(needs.get-version.outputs.version, '-') }}
+          generate_release_notes: true
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+            artifacts/*.sha256
+            artifacts/checksums.txt
+          body: |
+            ## ESV (Emoji Separated Values) ${{ needs.get-version.outputs.version }}
+
+            ### Installation
+
+            #### Download Binary
+            Download the appropriate binary for your platform from the assets below.
+
+            #### From Source
+            ```bash
+            cargo install --git https://github.com/${{ github.repository }} --tag ${{ needs.get-version.outputs.version }}
+            ```
+
+            ### Checksums
+            See `checksums.txt` for SHA256 checksums of all binaries.
+
+            ### What's Changed
