@@ -19,6 +19,12 @@
 //! # Default Separator
 //!
 //! The default emoji separator is 🔥 (fire emoji, U+1F525).
+//!
+//! # Separator Validation
+//!
+//! The separator must be an emoji character. ASCII characters and other non-emoji
+//! Unicode characters are not allowed. This ensures the format remains distinct from
+//! CSV and other traditional delimited formats.
 
 mod error;
 mod parser;
@@ -31,6 +37,81 @@ pub use serializer::LineEnding;
 
 /// Default emoji separator (fire emoji 🔥)
 pub const DEFAULT_SEPARATOR: char = '🔥';
+
+/// Check if a character is an emoji
+///
+/// This function checks if a character falls within common emoji Unicode ranges.
+/// It covers:
+/// - Miscellaneous Symbols and Pictographs (U+1F300-U+1F5FF)
+/// - Emoticons (U+1F600-U+1F64F)
+/// - Transport and Map Symbols (U+1F680-U+1F6FF)
+/// - Supplemental Symbols and Pictographs (U+1F900-U+1F9FF)
+/// - Symbols and Pictographs Extended-A (U+1FA00-U+1FA6F)
+/// - Symbols and Pictographs Extended-B (U+1FA70-U+1FAFF)
+/// - Dingbats (U+2700-U+27BF)
+/// - Miscellaneous Symbols (U+2600-U+26FF)
+/// - Miscellaneous Symbols and Arrows (U+2B00-U+2BFF)
+/// - Various other emoji ranges
+#[must_use]
+pub fn is_emoji(c: char) -> bool {
+    let code = c as u32;
+
+    // Common emoji ranges
+    matches!(
+        code,
+        // Miscellaneous Symbols and Pictographs
+        0x1F300..=0x1F5FF |
+        // Emoticons
+        0x1F600..=0x1F64F |
+        // Transport and Map Symbols
+        0x1F680..=0x1F6FF |
+        // Supplemental Symbols and Pictographs
+        0x1F900..=0x1F9FF |
+        // Symbols and Pictographs Extended-A
+        0x1FA00..=0x1FA6F |
+        // Symbols and Pictographs Extended-B
+        0x1FA70..=0x1FAFF |
+        // Dingbats (includes ❤ at U+2764)
+        0x2700..=0x27BF |
+        // Miscellaneous Symbols (includes ☀, ☁, etc.)
+        0x2600..=0x26FF |
+        // Miscellaneous Symbols and Arrows (includes ⭐ at U+2B50)
+        0x2B00..=0x2BFF |
+        // Enclosed Alphanumeric Supplement (some emoji)
+        0x1F100..=0x1F1FF |
+        // Mahjong Tiles
+        0x1F000..=0x1F02F |
+        // Domino Tiles
+        0x1F030..=0x1F09F |
+        // Playing Cards
+        0x1F0A0..=0x1F0FF |
+        // Miscellaneous Technical (some emoji like ⌚)
+        0x2300..=0x23FF |
+        // Arrows (some are emoji)
+        0x2190..=0x21FF |
+        // CJK Symbols (some emoji)
+        0x3000..=0x303F |
+        // Enclosed CJK Letters and Months
+        0x3200..=0x32FF |
+        // Geometric Shapes (some emoji)
+        0x25A0..=0x25FF |
+        // Box Drawing and Block Elements (some used as emoji)
+        0x2580..=0x259F
+    )
+}
+
+/// Validate that a separator is an emoji
+///
+/// # Errors
+///
+/// Returns `EsvError::InvalidSeparator` if the character is not an emoji.
+pub fn validate_separator(separator: char) -> Result<(), EsvError> {
+    if is_emoji(separator) {
+        Ok(())
+    } else {
+        Err(EsvError::InvalidSeparator { separator })
+    }
+}
 
 /// Represents a parsed ESV document
 #[derive(Debug, Clone, PartialEq)]
@@ -180,5 +261,108 @@ mod tests {
         assert_eq!(doc.len(), 1);
         assert!(!doc.is_empty());
         assert_eq!(doc.field_count(), Some(2));
+    }
+
+    // Emoji validation tests
+    #[test]
+    fn test_is_emoji_common_emoji() {
+        // Fire emoji (default separator)
+        assert!(is_emoji('🔥'));
+        // Smiley face
+        assert!(is_emoji('😀'));
+        // Heart
+        assert!(is_emoji('❤'));
+        // Star
+        assert!(is_emoji('⭐'));
+        // Rocket
+        assert!(is_emoji('🚀'));
+        // Pizza
+        assert!(is_emoji('🍕'));
+        // Thumbs up
+        assert!(is_emoji('👍'));
+    }
+
+    #[test]
+    fn test_is_emoji_ascii_not_emoji() {
+        // ASCII letters
+        assert!(!is_emoji('a'));
+        assert!(!is_emoji('Z'));
+        // ASCII digits
+        assert!(!is_emoji('0'));
+        assert!(!is_emoji('9'));
+        // Common CSV separators
+        assert!(!is_emoji(','));
+        assert!(!is_emoji(';'));
+        assert!(!is_emoji('\t'));
+        assert!(!is_emoji('|'));
+        // Other ASCII
+        assert!(!is_emoji(' '));
+        assert!(!is_emoji('\n'));
+        assert!(!is_emoji('"'));
+    }
+
+    #[test]
+    fn test_is_emoji_non_emoji_unicode() {
+        // Regular Unicode letters (not emoji)
+        assert!(!is_emoji('é'));
+        assert!(!is_emoji('ñ'));
+        assert!(!is_emoji('日'));
+        assert!(!is_emoji('本'));
+        // Currency symbols
+        assert!(!is_emoji('€'));
+        assert!(!is_emoji('£'));
+    }
+
+    #[test]
+    fn test_validate_separator_valid() {
+        assert!(validate_separator('🔥').is_ok());
+        assert!(validate_separator('😀').is_ok());
+        assert!(validate_separator('🚀').is_ok());
+        assert!(validate_separator('⭐').is_ok());
+    }
+
+    #[test]
+    fn test_validate_separator_invalid() {
+        let result = validate_separator(',');
+        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: ',' })));
+
+        let result = validate_separator('\t');
+        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: '\t' })));
+
+        let result = validate_separator('|');
+        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: '|' })));
+    }
+
+    #[test]
+    fn test_parser_rejects_ascii_separator() {
+        let parser = EsvParser::new().with_separator(',');
+        let result = parser.parse("a,b,c");
+        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: ',' })));
+    }
+
+    #[test]
+    fn test_parser_accepts_emoji_separator() {
+        let parser = EsvParser::new().with_separator('😀');
+        let result = parser.parse("a😀b😀c");
+        assert!(result.is_ok());
+        let doc = result.unwrap();
+        assert_eq!(doc.records[0], vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_serializer_rejects_ascii_separator() {
+        let serializer = EsvSerializer::new().with_separator(',');
+        let doc = EsvDocument::new(vec![vec!["a".to_string(), "b".to_string()]]);
+        let result = serializer.try_serialize(&doc);
+        assert!(matches!(result, Err(EsvError::InvalidSeparator { separator: ',' })));
+    }
+
+    #[test]
+    fn test_serializer_accepts_emoji_separator() {
+        let serializer = EsvSerializer::new().with_separator('😀');
+        let doc = EsvDocument::new(vec![vec!["a".to_string(), "b".to_string()]]);
+        let result = serializer.try_serialize(&doc);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "a😀b\n");
     }
 }
