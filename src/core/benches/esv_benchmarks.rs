@@ -80,11 +80,7 @@ fn generate_esv_with_newlines(rows: usize, cols: usize) -> String {
 
 fn generate_records(rows: usize, cols: usize) -> Vec<Vec<String>> {
     (0..rows)
-        .map(|row| {
-            (0..cols)
-                .map(|col| format!("value_{row}_{col}"))
-                .collect()
-        })
+        .map(|row| (0..cols).map(|col| format!("value_{row}_{col}")).collect())
         .collect()
 }
 
@@ -276,13 +272,9 @@ fn bench_wide_records(c: &mut Criterion) {
     for cols in [10, 50, 100].iter() {
         let input = generate_simple_esv(100, *cols);
         group.throughput(Throughput::Bytes(input.len() as u64));
-        group.bench_with_input(
-            BenchmarkId::new("parse", cols),
-            &input,
-            |b, input| {
-                b.iter(|| parse(black_box(input)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("parse", cols), &input, |b, input| {
+            b.iter(|| parse(black_box(input)));
+        });
     }
 
     for cols in [10, 50, 100].iter() {
