@@ -1,7 +1,43 @@
-[package]
-name = "emoji-separated-values"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = ["src/core", "src/cli"]
+resolver = "2"
 
-[dependencies]
-clap = { version = "4.5.53", features = ["derive"] }
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+uninlined_format_args = "warn"
+collapsible_if = "warn"
+redundant_closure_for_method_calls = "warn"
+
+[workspace.dependencies]
+# Internal crates
+esv-core = { path = "src/core" }
+
+# External dependencies
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
+ctor = "0.2"
+libc = "0.2"
+owo-colors = "4.0"
+regex-lite = "0.1"
+serde_json = "1.0"
+supports-color = "3.0"
+tokio = "1.0"
+toml = "0.8"
+tracing = "0.1"
+
+# Dev dependencies
+assert_cmd = "2.0"
+assert_matches = "1.5"
+predicates = "3.0"
+pretty_assertions = "1.4"
+tempfile = "3.0"
